@@ -1,6 +1,7 @@
 import os
 import pygame
 import random
+import math
 
 class Chip8:
 	def __init__(self):
@@ -13,7 +14,8 @@ class Chip8:
 		self.scale_factor = 4
 		self.delay_timer = 0
 		self.sound_timer = 0
-		self.frame_buffer = [0]*(self.width * self.height)
+		#self.frame_buffer = [0]*(self.width * self.height)
+		self.pixels = []
 		self.registers = [0]*(16)
 		self.stack = [0]*(16)
 		self.sp = 0
@@ -37,6 +39,17 @@ class Chip8:
 			0xE000: self._Exxx,
 			0xF000: self._Fxxx,
     	}
+		self._8xxx_opcodes = {
+			0x0000: self._8xx0,
+			0x0001: self._8xx1,
+			0x0002: self._8xx2,
+			0x0003: self._8xx3,
+			0x0004: self._8xx4,
+			0x0005: self._8xx5,
+			0x0006: self._8xx6,
+			0x0007: self._8xx7,
+			0x000E: self._8xxE,
+		}
 		self.fontset = [	
 			0xF0, 0x90, 0x90, 0x90, 0xF0, # 0
 			0x20, 0x60, 0x20, 0x20, 0x70, # 1
@@ -86,7 +99,7 @@ class Chip8:
 			self.frame_buffer = [0]*(64 * 32)
 		elif opcode == 0x00EE:
 			print("RET")
-			self.sp =- 1
+			self.sp -= 1
 			self.pc = self.stack[self.sp]
 
 	def _1xxx(self, opcode):
@@ -99,6 +112,7 @@ class Chip8:
 		addr = opcode & 0x0FFF
 		print("CALL ", hex(addr))
 		self.stack[self.sp] = self.pc
+		print(self.stack[self.sp])
 		self.sp += 1
 		self.pc = addr
 
@@ -133,61 +147,91 @@ class Chip8:
 		Vx = (opcode & 0x0F00) >> 8
 		byte = opcode & 0x00FF
 		print("ADD ", hex(Vx), ", ", hex(byte))
-		self.registers[Vx] += byte
+		x = self.registers[Vx] + (opcode & 0x00FF)
+		if x > 256: x = x - 256
+		self.registers[Vx] = x
 
-	def _8xxx(self, opcode):
+	def _8xx0(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
 		Vy = (opcode & 0x00F0) >> 4
+		print("LD ", hex(Vx), ", ", hex(Vy))
+		self.registers[Vx] += self.registers[Vy]
+	
+	def _8xx1(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("OR ", hex(Vx), ", ", hex(Vy))
+		self.registers[Vx] |= self.registers[Vy]
+
+	def _8xx2(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("AND ", hex(Vx), ", ", hex(Vy))
+		self.registers[Vx] &= self.registers[Vy]
+	
+	def _8xx3(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("XOR ", hex(Vx), ", ", hex(Vy))
+		self.registers[Vx] ^= self.registers[Vy]
+
+	def _8xx4(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("ADD ", hex(Vx), ", ", hex(Vy))
+		sum = self.registers[Vx] + self.registers[Vy]
+		self.registers[0xF] = 0
+		if sum > 255: 
+			self.registers[0xF] = 1
+		self.registers[Vx] = sum & 0xFF
+
+	def _8xx5(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("SUB ", hex(Vy), ", ", hex(Vx))
+		src = self.registers[Vy]
+		tar = self.registers[Vx]
+		if tar > src:
+			tar -= src
+			self.registers[0xF] = 1
+		else:
+			tar = 256 + tar - src
+			self.registers[0xF] = 0
+		self.registers[Vx] = tar
+	
+	def _8xx6(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("SHR ", hex(Vx), ", ", hex(Vy))
+		self.registers[0xf] = self.registers[Vx] & 0x1
+		#self.registers[Vx] >>= 1
+		self.registers[Vy] = self.registers[Vx] >> 1
+	
+	def _8xx7(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("SUBN ", hex(Vx), ", ", hex(Vy))
+		self.registers[0xF] = 0
+		if self.registers[Vy] > self.registers[Vx]:
+			self.registers[0xF] = 1
+		self.registers[Vx] = self.registers[Vy] - self.registers[Vx]
+	
+	def _8xxE(self, opcode):
+		Vx = (opcode & 0x0F00) >> 8
+		Vy = (opcode & 0x00F0) >> 4
+		print("SHL ", hex(Vx), ", ", hex(Vy))
+		self.registers[0xf] = self.registers[Vy] >> 7
+		self.registers[Vx] = self.registers[Vy] << 1
+
+	def _8xxx(self, opcode):
 		Bw = opcode & 0x000F
-		if Bw == 0x0000:
-			print("LD ", hex(Vx), ", ", hex(Vy))
-			self.registers[Vx] += self.registers[Vy]
-		elif Bw == 0x0001:
-			print("OR ", hex(Vx), ", ", hex(Vy))
-			self.registers[Vx] |= self.registers[Vy]
-		elif Bw == 0x0002:
-			print("AND ", hex(Vx), ", ", hex(Vy))
-			self.registers[Vx] &= self.registers[Vy]
-		elif Bw == 0x0003:
-			print("XOR ", hex(Vx), ", ", hex(Vy))
-			self.registers[Vx] ^= self.registers[Vy]
-		elif Bw == 0x0004:
-			print("ADD ", hex(Vx), ", ", hex(Vy))
-			sum = self.registers[Vx] + self.registers[Vy]
-			self.registers[0xF] = 0
-			if sum > 255: 
-				self.registers[0xF] = 1
-			self.registers[Vx] = sum & 0xFF
-		elif Bw == 0x0005:
-			print("SUB ", hex(Vx), ", ", hex(Vy))
-			sum = self.registers[Vx] + self.registers[Vy]
-			self.registers[0xF] = 0
-			if Vx > Vy: 
-				self.registers[0xF] = 1
-			self.registers[Vx] -= self.registers[Vy]
-		elif Bw == 0x0006:
-			print("SHR ", hex(Vx), ", ", hex(Vy))
-			self.registers[0xF] = (self.registers[Vx] & 0x1)
-			self.registers[Vx] >>= 1
-		elif Bw == 0x0007:
-			print("SUBN ", hex(Vx), ", ", hex(Vy))
-			sum = self.registers[Vx] + self.registers[Vy]
-			self.registers[0xF] = 0
-			if Vy > Vx:
-				self.registers[0xF] = 1
-			self.registers[Vx] = self.registers[Vy] - self.registers[Vx]
-		elif Bw == 0x0008:
-			print("SHL ", hex(Vx), ", ", hex(Vy))
-			self.registers[0xF] = (self.registers[Vx] & 0x80) >> 7
-			self.registers[Vx] <<= 1
+		self._8xxx_opcodes.get(Bw)(opcode)
 
 	def _9xxx(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
 		Vy = (opcode & 0x00F0) >> 4
-		Bw = opcode & 0x000F
-		if Bw == 0x0000:
-			if self.registers[Vx] != self.registers[Vy]:
-				self.pc += 2
+		if self.registers[Vx] != self.registers[Vy]:
+			self.pc += 2
 
 	def _Axxx(self, opcode):
 		addr = opcode & 0x0FFF
@@ -221,7 +265,7 @@ class Chip8:
 				if sprite_pixel:
 					#if screen_pixel == 0xFFFFFFFF:
 					#	self.registers[0x1F] = 1
-					self.frame_buffer[(y + row) * self.width + (x + col)] = 0xFFFF
+					self.pixels.append(((x + col), (y + row)))
 
 	def _Exxx(self, opcode):
 		#keyboard
@@ -281,22 +325,19 @@ class Chip8:
 			self.index = self.fontset_start + (5 * self.registers[Vx])
 		if Bw == 0x0033:
 			print("LD B, ", Vx)
-			reg = self.registers[Vx]
-			self.memory[self.index + 2] = int(reg % 10)
-			reg /= 10
-			reg = int(reg)
-			self.memory[self.index + 1] = int(reg % 10)
-			reg /= 10
-			reg = int(reg)
-			self.memory[self.index] = int(reg % 10)
+			bcd_value = '{:03d}'.format(self.registers[Vx])
+			self.memory[self.index] = int(bcd_value[0])
+			self.memory[self.index + 1] = int(bcd_value[1])
+			self.memory[self.index + 2] = int(bcd_value[2])
 		if Bw == 0x0055:
 			print("LD [I], ", Vx)
-			for i in range(0, Vx):
-				self.memory[self.index + i] = self.registers[i]
+			for counter in range(Vx + 1):
+				self.memory[self.index + counter] = self.registers[counter]
 		if Bw == 0x0065:
 			print("LD ", Vx, ", [I]")
-			for i in range(0, Vx):
-				self.registers[i] = self.memory[self.index + i]
+			Vx = (opcode & 0x0F00) >> 8
+			for counter in range(Vx + 1):
+				self.registers[counter] = self.memory[self.index + counter]
 
 	def skipto(self, addr):
 		self.pc = addr
@@ -304,22 +345,31 @@ class Chip8:
 	def cycle(self):
 		opcode = (self.memory[self.pc] << 8) | self.memory[self.pc + 1]
 		mask = opcode & 0xF000
-		self.opcodes.get(mask)(opcode)
 		self.pc += 2
+		self.opcodes.get(mask)(opcode)
 		if self.delay_timer > 0: self.delay_timer -= 1
 		if self.sound_timer > 0: self.sound_timer -= 1
 
-
 chip = Chip8()
-chip.skipto(0x200)
-rlen = chip.load_rom("test_opcode.ch8")
 screen = pygame.display.set_mode((chip.width * chip.scale_factor, chip.height * chip.scale_factor))
 pygame.display.flip()
+chip.skipto(0x200)
+rlen = chip.load_rom("bc_test.ch8")
 running = True
 while running:
 	#pygame.time.set_timer(pygame.USEREVENT + 1, round((1/60)*1000))
 	chip.cycle()
-	#print(chip.frame_buffer)
+	for x, y in chip.pixels:
+		pygame.draw.rect(screen, (255, 255, 255), 
+			pygame.Rect(x * chip.scale_factor, 
+				y * chip.scale_factor, 
+				chip.scale_factor, 
+				chip.scale_factor
+			)
+		)
+		pygame.display.flip()
+	chip.pixels = []
+	"""
 	for x in range(chip.width):
 		for y in range(chip.height):
 			pixel = chip.frame_buffer[x + y * chip.width]
@@ -334,6 +384,7 @@ while running:
 					)
 				)
 				pygame.display.flip()
+	"""
 	for event in pygame.event.get():
 		if event.type == pygame.QUIT:
 			running = False
