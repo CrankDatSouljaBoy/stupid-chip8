@@ -1,7 +1,5 @@
-import os
 import pygame
 import random
-import math
 
 class Chip8:
 	def __init__(self):
@@ -11,7 +9,7 @@ class Chip8:
 		self.memory = [0]*4096
 		self.width = 64
 		self.height = 32
-		self.scale_factor = 4
+		self.scale_factor = 16
 		self.delay_timer = 0
 		self.sound_timer = 0
 		#self.frame_buffer = [0]*(self.width * self.height)
@@ -355,7 +353,7 @@ chip = Chip8()
 screen = pygame.display.set_mode((chip.width * chip.scale_factor, chip.height * chip.scale_factor))
 pygame.display.flip()
 chip.skipto(0x200)
-rlen = chip.load_rom("ibm.ch8")
+rlen = chip.load_rom("bc_test.ch8")
 running = True
 while running:
 	#pygame.time.set_timer(pygame.USEREVENT + 1, round((1/60)*1000))
