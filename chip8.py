@@ -102,7 +102,7 @@ class Chip8:
 
 	def _1xxx(self, opcode):
 		addr = opcode & 0x0FFF
-		print("JP ", hex(addr))
+		#print("JP ", hex(addr))
 		self.pc = addr
 		self.stepPC = False
 
@@ -201,9 +201,9 @@ class Chip8:
 		Vx = (opcode & 0x0F00) >> 8
 		Vy = (opcode & 0x00F0) >> 4
 		print("SHR ", hex(Vx), ", ", hex(Vy))
-		self.registers[0xf] = self.registers[Vx] & 0x1
-		#self.registers[Vx] >>= 1
-		self.registers[Vy] = self.registers[Vx] >> 1
+		self.registers[0xF] = self.registers[Vx] & 0x01
+		print(self.registers[0xF])
+		self.registers[Vx] >>= 1
 	
 	def _8xx7(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
@@ -213,13 +213,15 @@ class Chip8:
 		if self.registers[Vy] > self.registers[Vx]:
 			self.registers[0xF] = 1
 		self.registers[Vx] = self.registers[Vy] - self.registers[Vx]
-	
+
 	def _8xxE(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
 		Vy = (opcode & 0x00F0) >> 4
 		print("SHL ", hex(Vx), ", ", hex(Vy))
-		self.registers[0xf] = self.registers[Vy] >> 7
-		self.registers[Vx] = self.registers[Vy] << 1
+		# okay what the hell
+		self.registers[0xF] = self.registers[Vx] >> 7
+		print(self.registers[0xF])
+		self.registers[Vx] = (self.registers[Vx] << 1) & 0xFF
 
 	def _8xxx(self, opcode):
 		Bw = opcode & 0x000F
