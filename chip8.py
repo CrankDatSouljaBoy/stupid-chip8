@@ -17,6 +17,7 @@ class Chip8:
 		self.registers = [0]*(16)
 		self.stack = [0]*(16)
 		self.sp = 0
+		self.stepPC = True
 		self.pc = 0
 		self.opcodes = {
 			0x0000: self._0xxx,
@@ -92,12 +93,13 @@ class Chip8:
 		addr = opcode & 0x0FFF
 		print("JP ", hex(addr))
 		self.pc = addr
+		self.stepPC = False
 
 	def _2xxx(self, opcode):
 		addr = opcode & 0x0FFF
 		print("CALL ", hex(addr))
 		self.stack[self.sp] = self.pc
-		self.sp =+ 1
+		self.sp += 1
 		self.pc = addr
 
 	def _3xxx(self, opcode):
@@ -105,21 +107,21 @@ class Chip8:
 		kk = opcode & 0x00FF
 		print("SE ", hex(x), ", ", hex(kk))
 		if self.registers[x] == kk:
-			self.pc =+ 2
+			self.pc += 2
 
 	def _4xxx(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
 		byte = opcode & 0x00FF
 		print("SNE ", hex(Vx), ", ", hex(byte))
 		if self.registers[Vx] != byte:
-			self.pc =+ 2
+			self.pc += 2
 
 	def _5xxx(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
 		Vy = (opcode & 0x00F0) >> 4
 		print("SE ", hex(Vx), ", ", hex(Vy))
 		if self.registers[Vx] == self.registers[Vy]:
-			self.pc =+ 2
+			self.pc += 2
 
 	def _6xxx(self, opcode):
 		Vx = (opcode & 0x0F00) >> 8
@@ -302,15 +304,15 @@ class Chip8:
 	def cycle(self):
 		opcode = (self.memory[self.pc] << 8) | self.memory[self.pc + 1]
 		mask = opcode & 0xF000
-		self.pc += 2
 		self.opcodes.get(mask)(opcode)
+		self.pc += 2
 		if self.delay_timer > 0: self.delay_timer -= 1
 		if self.sound_timer > 0: self.sound_timer -= 1
 
 
 chip = Chip8()
 chip.skipto(0x200)
-rlen = chip.load_rom("rand.ch8")
+rlen = chip.load_rom("test_opcode.ch8")
 screen = pygame.display.set_mode((chip.width * chip.scale_factor, chip.height * chip.scale_factor))
 pygame.display.flip()
 running = True
