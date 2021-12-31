@@ -3,5 +3,6 @@
 
 # progress
 - passes bc_test
-- nearly passes test_opcode (all but 8XY6)
+- passes c8_test
+- nearly passes test_opcode (all but 8XYE)
 - io doesn't fully work
